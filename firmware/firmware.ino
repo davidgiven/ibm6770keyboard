@@ -1,42 +1,12 @@
 #include <USBComposite.h>
+#include <usb_hid.h>
 
 #define LED PC13
 
-#if 0
-class HIDGraphics : public HIDReporter
-{
-public:
-protected:
-public:
-    HIDGraphics(USBHID& HID):
-        HIDReporter(HID, &reportDescriptor, nullptr, 0)
-    {
-    }
+static constexpr uint8_t DISPLAY_ATTRIBUTES_REPORT_ID = 0x40;
+static constexpr uint8_t BLIT_REPORT_ID = 0x41;
 
-    void begin()
-    {
-        buf.buffer = rxBuffer;
-        buf.bufferSize = HID_BUFFER_SIZE(sizeof(rxBuffer), 0);
-        buf.reportID = 0;
-        HID.addOutputBuffer(&buf);
-    }
-
-    void end(void);
-
-private:
-    static constexpr uint8_t reportDescriptorBytes[] = {};
-    static constexpr HIDReportDescriptor reportDescriptor = {
-        reportDescriptorBytes, sizeof(reportDescriptorBytes)};
-
-private:
-    uint8_t rxBuffer[64];
-    HIDBuffer_t buf;
-};
-#endif
-
-static const uint8_t reportDescriptor[] = {
-    HID_BOOT_KEYBOARD_REPORT_DESCRIPTOR(),
-
+static const uint8_t graphicsReportDescriptorBytes[] = {
     /* See page 204 of https://usb.org/sites/default/files/hut1_2.pdf.
      * There's also a really useful example here:
      * https://usb.org/sites/default/files/hutrr29b_0.pdf */
@@ -46,7 +16,7 @@ static const uint8_t reportDescriptor[] = {
     0xA1, 0x01,						               // Collection (Application)
       0x09, 0x20,                        //   Usage (Display Attributes report)
       0xA1, 0x02,                        //   Collection (Logical)
-        0x85, 0x40,                      //     Report ID: 0x40
+        0x85, DISPLAY_ATTRIBUTES_REPORT_ID, //  Report ID
         0x09, 0x80,                      //     Usage: bitmap size X
         0x09, 0x81,                      //     Usage: bitmap size Y
         0x09, 0x83,                      //     Usage: bitmap depth
@@ -58,7 +28,7 @@ static const uint8_t reportDescriptor[] = {
       0xc0,                              //   end
       0x09, 0x8a,                        // Usage: blit report
       0xA1, 0x02,                        //   Collection (Logical)
-        0x85, 0x41,                      //     Report ID: 0x41
+        0x85, BLIT_REPORT_ID,            //     Report ID
         0x09, 0x8b,                      //     Usage: blit rectange X1
         0x09, 0x8c,                      //     Usage: blit rectange Y1
         0x09, 0x8d,                      //     Usage: blit rectange Y2
@@ -70,16 +40,108 @@ static const uint8_t reportDescriptor[] = {
         0x91, 0x02,                      //     Output: Data, Var, Abs
         0x09, 0x8f,                      //     Usage: blit data buffer
         0x75, 0x08,                      //     Report size: 8
-        0x96, 0x00, 0x01,                //     Report size: 256
+        0x95, 0x20,                      //     Report size: 32
         0x92, 0x02, 0x01,               //     Output: Data, Var, Abs, Buf
       0xc0,
     0xc0
     // clang-format on
 };
 
+static const HIDReportDescriptor graphicsReportDescriptor = {
+    graphicsReportDescriptorBytes, sizeof(graphicsReportDescriptorBytes)};
+
+typedef struct
+{
+    uint16_t width;
+    uint16_t height;
+    uint16_t depth;
+} __packed DisplayAttributesReport;
+
+typedef struct
+{
+    uint16_t x1, y1;
+    uint16_t x2, y2;
+    uint8_t data[0x20];
+} __packed BlitReport;
+
+USBCompositeSerial USBSerial;
+
+class HIDGraphics : public HIDReporter
+{
+public:
+    HIDGraphics(USBHID& HID):
+        HIDReporter(HID, &graphicsReportDescriptor, nullptr, 0)
+    {
+    }
+
+    void begin()
+    {
+        attributesBuffer.buffer = attributesBufferBytes;
+        attributesBuffer.bufferSize = sizeof(attributesBufferBytes);
+        attributesBuffer.reportID = DISPLAY_ATTRIBUTES_REPORT_ID;
+        HID.addFeatureBuffer(&attributesBuffer);
+
+        blitBuffer.buffer = blitBufferBytes;
+        blitBuffer.bufferSize = sizeof(blitBufferBytes);
+        blitBuffer.reportID = BLIT_REPORT_ID;
+        HID.addOutputBuffer(&blitBuffer);
+
+        displayAttributesReport.width = 480;
+        displayAttributesReport.height = 32;
+        displayAttributesReport.depth = 1;
+        usb_hid_set_feature(
+            DISPLAY_ATTRIBUTES_REPORT_ID, (uint8_t*)&displayAttributesReport);
+    }
+
+    void process()
+    {
+        uint16_t b;
+
+        if (b = usb_hid_get_data(HID_REPORT_TYPE_OUTPUT,
+                BLIT_REPORT_ID,
+                (uint8_t*)&blitReport,
+                true))
+        {
+            USBSerial.print(blitReport.x1, HEX);
+            USBSerial.print(" ");
+            USBSerial.print(blitReport.y1, HEX);
+            USBSerial.print(" ");
+            USBSerial.print(blitReport.x2, HEX);
+            USBSerial.print(" ");
+            USBSerial.println(blitReport.y2, HEX);
+        }
+    }
+
+private:
+    void sendReport(uint8_t reportId, const uint8_t* data, unsigned len)
+    {
+        while (usb_hid_tx(&reportId, 1) != 1)
+            ;
+        while (len)
+        {
+            unsigned delta = usb_hid_tx(data, len);
+            len -= delta;
+            data += delta;
+        }
+    }
+
+private:
+    uint8_t attributesBufferBytes[HID_BUFFER_ALLOCATE_SIZE(
+        sizeof(DisplayAttributesReport), DISPLAY_ATTRIBUTES_REPORT_ID)];
+    HIDBuffer_t attributesBuffer;
+    DisplayAttributesReport displayAttributesReport;
+
+    uint8_t blitBufferBytes[HID_BUFFER_ALLOCATE_SIZE(
+        sizeof(BlitReport), BLIT_REPORT_ID)];
+    HIDBuffer_t blitBuffer;
+    BlitReport blitReport;
+
+private:
+};
+
 USBHID HID;
 HIDKeyboard Keyboard(HID, 0);
-USBCompositeSerial USBSerial;
+HIDGraphics Graphics(HID);
 
 HardwareSerial KeyboardSerial(USART2, PA2, PA2);
 
@@ -93,20 +155,24 @@ void setup()
     USBComposite.setManufacturerString("Cowlark Technologies");
     USBComposite.setProductString("IBM 6770 Keyboard Interface");
 
-    HID.begin(USBSerial, reportDescriptor, sizeof(reportDescriptor));
+    HID.begin(USBSerial);
     while (!USBComposite)
         ;
+
     Keyboard.begin();
+    Graphics.begin();
 
     KeyboardSerial.begin(186453);
 }
 
 void loop()
 {
+    Graphics.process();
+
     if (KeyboardSerial.available())
     {
         // KeyboardSerial.enableHalfDuplexRx();
         uint8_t b = KeyboardSerial.read();
-        USBSerial.println(b, HEX);
+        // USBSerial.println(b, HEX);
     }
 }
