@@ -2,10 +2,15 @@
 #include <usb_hid.h>
 
 #define LED_PIN PC13
-#define SERIAL_PIN PB6
+#define SERIALRX_PIN PA10
+#define SERIALTX_PIN PA9
 #define RESET_PIN PB8
 
 #include "keymap.h"
+
+#include "keyboardinterface.h"
+KeyboardInterface KeyboardInterface(
+    USART1, SERIALRX_PIN, SERIALTX_PIN, RESET_PIN);
 
 static constexpr uint8_t DISPLAY_ATTRIBUTES_REPORT_ID = 21;
 static constexpr uint8_t BLIT_REPORT_ID = 22;
@@ -69,8 +74,8 @@ typedef struct
 } __packed BlitReport;
 
 USBCompositeSerial USBSerial;
-HardwareSerial KeyboardInterface(USART1, SERIAL_PIN, SERIAL_PIN);
 
+#if 0
 template <int WIDTH, int HEIGHT>
 class HIDGraphics : public HIDReporter
 {
@@ -266,18 +271,16 @@ public:
 private:
     uint8_t shadow[4][480];
 };
+#endif
 
 USBHID HID;
-HIDKeyboard USBKeyboard(HID, 0);
-IBM6770Screen Screen(HID);
+HIDKeyboard USBKeyboard(HID);
+// IBM6770Screen Screen(HID);
 
 void setup()
 {
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, 1);
-
-    pinMode(RESET_PIN, OUTPUT_OPEN_DRAIN);
-    digitalWrite(RESET_PIN, 0);
 
     USBComposite.setProductId(0x6e01);
     USBComposite.setVendorId(0x1209);
@@ -289,32 +292,30 @@ void setup()
         ;
 
     USBKeyboard.begin();
-    Screen.begin();
-    KeyboardInterface.begin(186453);
-}
 
-extern "C"
-{
-    void logs(const char* s)
-    {
-        USBSerial.println(s);
-    }
-    void logp(void* p)
-    {
-        USBSerial.print("ptr=0x");
-        USBSerial.println((unsigned)p, HEX);
-    }
+    // Screen.begin();
+    KeyboardInterface.begin();
+    KeyboardInterface.initHardware();
+    KeyboardInterface.cmdSoundControl('A'); /* keyclick off */
+    KeyboardInterface.cmdSoundControl('4'); /* make click */
 }
 
 void loop()
 {
-    Screen.process();
-    Screen.sync();
+    // Screen.process();
+    // Screen.sync();
 
-    if (KeyboardInterface.available())
+    KeyboardInterface.cmdPoll();
+    if (KeyboardInterface.keysAvailable())
     {
-        // KeyboardSerial.enableHalfDuplexRx();
-        uint8_t b = KeyboardInterface.read();
-        // USBSerial.println(b, HEX);
+        uint8_t key = KeyboardInterface.cmdGetKey();
+        uint8_t ascii = keyboardMap[key & 0x7f];
+        if (ascii)
+        {
+            if (!(key & 0x80))
+                USBKeyboard.press(ascii);
+            else
+                USBKeyboard.release(ascii);
+        }
     }
 }
