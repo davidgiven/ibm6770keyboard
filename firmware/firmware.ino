@@ -1,7 +1,11 @@
 #include <USBComposite.h>
 #include <usb_hid.h>
 
-#define LED PC13
+#define LED_PIN PC13
+#define SERIAL_PIN PB6
+#define RESET_PIN PB8
+
+#include "keymap.h"
 
 static constexpr uint8_t DISPLAY_ATTRIBUTES_REPORT_ID = 21;
 static constexpr uint8_t BLIT_REPORT_ID = 22;
@@ -65,6 +69,7 @@ typedef struct
 } __packed BlitReport;
 
 USBCompositeSerial USBSerial;
+HardwareSerial KeyboardInterface(USART1, SERIAL_PIN, SERIAL_PIN);
 
 template <int WIDTH, int HEIGHT>
 class HIDGraphics : public HIDReporter
@@ -91,7 +96,6 @@ public:
             DISPLAY_ATTRIBUTES_REPORT_ID, (uint8_t*)&displayAttributesReport);
 
         memset(buffer, 0, sizeof(buffer));
-        memset(backBuffer, 0xff, sizeof(backBuffer));
     }
 
     void process()
@@ -110,7 +114,7 @@ public:
                 {
                     if (p == &blitReport.data[sizeof(blitReport.data)])
                         break;
-                  
+
                     if (!count)
                     {
                         buffer = *p++;
@@ -133,6 +137,16 @@ public:
         uint8_t* p = &buffer[y * STRIDE + x / 8];
         int b = 0x80 >> (x & ~7);
         *p = (*p & ~b) | (value ? b : 0);
+    }
+
+    bool getPixel(int x, int y)
+    {
+        if ((x < 0) || (y < 0) || (x >= WIDTH) || (y >= HEIGHT))
+            return false;
+
+        uint8_t p = buffer[y * STRIDE + x / 8];
+        int b = 0x80 >> (x & ~7);
+        return p & b;
     }
 
 private:
@@ -164,16 +178,106 @@ private:
     uint8_t backBuffer[STRIDE * HEIGHT];
 };
 
-USBHID HID;
-HIDKeyboard Keyboard(HID, 0);
-HIDGraphics<480, 32> Graphics(HID);
+class IBM6770Screen : public HIDGraphics<480, 32>
+{
+public:
+    IBM6770Screen(USBHID& HID): HIDGraphics(HID)
+    {
+        memset(shadow, 0xff, sizeof(shadow));
 
-HardwareSerial KeyboardSerial(USART2, PA2, PA2);
+        digitalWrite(RESET_PIN, 1);
+        delay(200);
+        digitalWrite(RESET_PIN, 0);
+        delay(200);
+    }
+
+    void sync()
+    {
+        /* Look for changed data and send it to the screen --- but only one
+         * packet at a time to avoid blocking the main loop too long (as this
+         * will cause keypresses to be delayed). */
+
+        uint16_t sendAddress = 0xffff;
+        uint16_t currentAddress = 0xffff;
+        uint8_t sendBuffer[12];
+        int sendCount = 0;
+
+        for (int line = 0; line < 4; line++)
+        {
+            for (int x = 0; x < 480; x++)
+            {
+                if (sendCount == sizeof(sendBuffer))
+                    break;
+
+                int y = line * 8;
+                uint8_t b =
+                    (getPixel(x, y + 0) << 7) | (getPixel(x, y + 1) << 6) |
+                    (getPixel(x, y + 2) << 5) | (getPixel(x, y + 3) << 4) |
+                    (getPixel(x, y + 4) << 3) | (getPixel(x, y + 5) << 2) |
+                    (getPixel(x, y + 6) << 1) | (getPixel(x, y + 7) << 1);
+
+                uint8_t* s = &shadow[line][x];
+                if (*s != b)
+                {
+                    /* This column has changed, so we need to send it. */
+
+                    uint16_t address = 0x200 * line + x;
+                    if (currentAddress != address)
+                    {
+                        /* Packet in progress --- finish up the current packet
+                         * and we'll make a new one next time round. */
+
+                        if (sendCount != 0)
+                            goto exit;
+
+                        cmdSetAddress(address);
+                        currentAddress = address;
+                    }
+
+                    *s = b;
+                    sendBuffer[sendCount++] = b;
+                    currentAddress++;
+                }
+            }
+        }
+
+    exit:
+        if (sendCount != 0)
+            cmdSendData(sendCount, sendBuffer);
+    }
+
+    void cmdSetAddress(uint16_t address)
+    {
+        USBSerial.print("address=0x");
+        USBSerial.println(address, HEX);
+    }
+
+    void cmdSendData(int count, const uint8_t* buffer)
+    {
+        USBSerial.print("bytes=");
+        for (int i = 0; i < count; i++)
+        {
+            USBSerial.print(" 0x");
+            USBSerial.print(buffer[i]);
+        }
+        USBSerial.println();
+    }
+
+private:
+    uint8_t shadow[4][480];
+};
+
+USBHID HID;
+HIDKeyboard USBKeyboard(HID, 0);
+IBM6770Screen Screen(HID);
 
 void setup()
 {
-    pinMode(LED, OUTPUT);
-    digitalWrite(LED, 1);
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, 1);
+
+    pinMode(RESET_PIN, OUTPUT_OPEN_DRAIN);
+    digitalWrite(RESET_PIN, 0);
 
     USBComposite.setProductId(0x6e01);
     USBComposite.setVendorId(0x1209);
@@ -184,10 +288,9 @@ void setup()
     while (!USBComposite)
         ;
 
-    Keyboard.begin();
-    Graphics.begin();
-
-    KeyboardSerial.begin(186453);
+    USBKeyboard.begin();
+    Screen.begin();
+    KeyboardInterface.begin(186453);
 }
 
 extern "C"
@@ -205,12 +308,13 @@ extern "C"
 
 void loop()
 {
-    Graphics.process();
+    Screen.process();
+    Screen.sync();
 
-    if (KeyboardSerial.available())
+    if (KeyboardInterface.available())
     {
         // KeyboardSerial.enableHalfDuplexRx();
-        uint8_t b = KeyboardSerial.read();
+        uint8_t b = KeyboardInterface.read();
         // USBSerial.println(b, HEX);
     }
 }
