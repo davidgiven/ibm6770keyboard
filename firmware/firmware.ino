@@ -8,8 +8,6 @@
 
 #include "keymap.h"
 
-USBCompositeSerial USBSerial;
-
 #include "keyboardinterface.h"
 #include "hidlcd.h"
 
@@ -25,8 +23,16 @@ public:
         _currentAddress(0xffff),
         _keyboardInterface(keyboardInterface)
     {
-        memset(_frontBuffer, 0xff, sizeof(_frontBuffer));
-        memset(_backBuffer, 0xff, sizeof(_backBuffer));
+        memset(_frontBuffer, 0x00, sizeof(_frontBuffer));
+        memset(_backBuffer, 0x00, sizeof(_backBuffer));
+    }
+
+    void begin()
+    {
+        HIDLCD::begin();
+
+        for (int i = 0; i < height / 8; i++)
+            _keyboardInterface.cmdClear(i, width);
     }
 
     void setPixel(int x, int y, bool value) override
@@ -102,7 +108,6 @@ KeyboardInterface KeyboardInterface(
 USBHID HID;
 HIDKeyboard USBKeyboard(HID);
 IBM6770Screen Screen(HID, KeyboardInterface);
-// IBM6770Screen Screen(HID);
 
 void setup()
 {
@@ -114,17 +119,17 @@ void setup()
     USBComposite.setManufacturerString("Cowlark Technologies");
     USBComposite.setProductString("IBM 6770 Keyboard Interface");
 
-    HID.begin(USBSerial);
+    HID.begin();
     while (!USBComposite)
         ;
 
     USBKeyboard.begin();
 
-    Screen.begin();
     KeyboardInterface.begin();
     KeyboardInterface.initHardware();
     KeyboardInterface.cmdSoundControl('A'); /* keyclick off */
     KeyboardInterface.cmdSoundControl('4'); /* make click */
+    Screen.begin();
 }
 
 void loop()
