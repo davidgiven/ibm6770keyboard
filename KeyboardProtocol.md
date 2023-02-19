@@ -100,6 +100,7 @@ For `f2`:
 
 `10`
 :   Cursor is flashing.
+
 `40`
 :   Cursor is an underscore only; the default is an underscore and an
 overscore.
