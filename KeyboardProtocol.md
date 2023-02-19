@@ -67,100 +67,115 @@ Commands
 (If the keyboard replies with anything useful, the byte marked with a `!` is
 the one with the reply attached to it. No, it's not necessarily the last...)
 
-`11`
-:   Reset.
+### `11`
 
-:   Restarts the keyboard firmware in _normal mode_.
+Reset.
 
-`22!`
-:   Poll.
+Restarts the keyboard firmware in _normal mode_.
 
-:   Replies with the current keyboard status flags.
+### `22!`
 
-`33!`
-:   Fetches the next key from the event buffer. This has the scancode in the
+Poll.
+
+Replies with the current keyboard status flags.
+
+### `33!`
+
+Fetches the next key from the event buffer. This has the scancode in the
 bottom seven bytes. If this is a keyup, the top bit will be set. If the event
 buffer is empty, this returns 0 --- which _is_ a valid scancode! (It's `\``.)
 
-`44 x`
-:   Sets the cursor X position. Characters are six pixels wide.
+### `44 x`
 
-`55 f1 f2`
-:   Controls the cursor.
+Sets the cursor X position. Characters are six pixels wide.
 
-:   For `f1`: the bottom four bits control which line the cursor is on --- 0,
-    1, 2 or 4. Add `40` if you want 8-pixel high characters; the default is 16.
+### `55 f1 f2`
 
-:   For `f2`:
+Controls the cursor.
 
-:   `10`
-:   :   Cursor is flashing.
-:   `40`
-:   :   Cursor is an underscore only; the default is an underscore and an
-:   overscore.
+For `f1`: the bottom four bits control which line the cursor is on --- 0, 1, 2
+or 4. Add `40` if you want 8-pixel high characters; the default is 16.
 
-`66 r x w`
-:   Controls the overlay window.
+For `f2`:
 
-:   `r`: right margin, in characters.
-    
-:   `x`: unknown --- maybe a command for scrolling?
+`10`
+:   Cursor is flashing.
+`40`
+:   Cursor is an underscore only; the default is an underscore and an
+overscore.
 
-:   `w`: width of the window.
+### `66 r x w`
 
-`77 x bytes...`
-:   Draws a character on the overlay window.
+Controls the overlay window.
 
-:   `x` is the character position. This is then followed by either 6 bytes or
-    12 bytes, for 8-pixel and 16-pixel high characters respectively. See `55`.
+`r`: right margin, in characters.
 
-`88 nn`
-:   Sound control.
+`x`: unknown --- maybe a command for scrolling?
 
-:   `nn` can be:
+`w`: width of the window.
 
-:   `30`, `31`
-:   :   Plays a low beep; long, short.
+### `77 x bytes...`
 
-:   `32`, `33`
-:   :   Plays a high beep: long, short.
+Draws a character on the overlay window.
 
-:   `34`
-:   :   Produces a click.
+`x` is the character position. This is then followed by either 6 bytes or 12
+bytes, for 8-pixel and 16-pixel high characters respectively. See `55`.
 
-:   `40`
-:   :   Turns keyclicks on.
+### `88 nn`
 
-:   `41`
-:   :   Turns keyclicks off.
+Sound control.
 
-`99 hi lo`
-:   Sets the current video memory address.
+`nn` can be:
 
-:   Used for writing with `bb`.
+`30`, `31`
+:   Plays a low beep; long, short.
 
-`aa`
-:   Switches to _demo mode_.
+`32`, `33`
+:   Plays a high beep: long, short.
 
-`bb n bytes...`
-:   Writes to video memory.
+`34`
+:   Produces a click.
 
-:   Takes `n` bytes and writes them consecutively to video memory, incrementing
-    the write address each time. `n` can go up to 12 before the firmware
-    command buffer overflows and the keyboard crashes.
+`40`
+:   Turns keyclicks on.
 
-`cc x`
-:   Unknown.
+`41`
+:   Turns keyclicks off.
 
-`dd hi1 lo1 hi2 lo2`
-:   Clears video memory.
+### `99 hi lo`
 
-:   Writes `{hi2,lo2}` zero bytes at address `{hi1,lo1}`. `lo1` seems to have
-    to be 1 or odd things happen.
+Sets the current video memory address.
 
-`ee x`
-:   Unknown.
+Used for writing with `bb`.
 
-`ff`
-:   Unknown.
+### `aa`
+
+Switches to _demo mode_.
+
+### `bb n bytes...`
+
+Writes to video memory.
+
+Takes `n` bytes and writes them consecutively to video memory, incrementing
+the write address each time. `n` can go up to 12 before the firmware
+command buffer overflows and the keyboard crashes.
+
+### `cc x`
+
+Unknown.
+
+### `dd hi1 lo1 hi2 lo2`
+
+Clears video memory.
+
+Writes `{hi2,lo2}` zero bytes at address `{hi1,lo1}`. `lo1` seems to have
+to be 1 or odd things happen.
+
+### `ee x`
+
+Unknown.
+
+### `ff`
+
+Unknown.
 
