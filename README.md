@@ -39,6 +39,11 @@ you want to use the LCD, you'll need to source a -5V supply from somewhere. I
 used a cheap Banggood negative voltage generator module. Almost no current is
 required.
 
+**Important**: you will need [Roger Clark Melbourne's STM32 Arduino
+core](https://github.com/rogerclarkmelbourne/Arduino_STM32/) and you will
+_also_ need to patch it with the up-to-date version of [the USBComposite
+library](https://github.com/arpruss/USBComposite_stm32f1).
+
 Once programmed and hooked up, plug in the Blue Pill. There'll be a short pause
 as the keyboard is initialised and it'll make a short beep. If you have the LCD
 working, you'll see it go black and then clear. It's now ready to use,
