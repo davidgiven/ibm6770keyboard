@@ -69,6 +69,12 @@ public:
         return rx();
     }
 
+    uint8_t txrxw(uint16_t b)
+    {
+        txrx(b >> 8);
+        return txrx(b & 0xff);
+    }
+
     uint8_t rx()
     {
         while (!_serial.available())
@@ -88,6 +94,23 @@ public:
     bool keysAvailable() const
     {
         return !(_flags & 0x80);
+    }
+
+    bool gpuBusy() const
+    {
+        return (_flags & 0x20);
+    }
+
+    uint8_t getFlags() const
+    {
+        return _flags;
+    }
+
+    void waitForGpu()
+    {
+        do
+            cmdPoll();
+        while (gpuBusy());
     }
 
 public:
@@ -114,15 +137,28 @@ public:
         return k;
     }
 
-void cmdSoundControl(uint8_t op)
-{
-txrxc(0x88);
-txrx(op);  
-}
-
-    uint8_t getFlags() const
+    void cmdSoundControl(uint8_t op)
     {
-        return _flags;
+        txrxc(0x88);
+        txrx(op);
+    }
+
+    void cmdSetGpuAddress(uint16_t address)
+    {
+        waitForGpu();
+
+        txrxc(0x99);
+        txrxw(address);
+    }
+
+    void cmdSendGpuData(uint8_t count, const uint8_t data[12])
+    {
+        waitForGpu();
+
+        txrxc(0xbb);
+        txrx(count);
+        for (int i = 0; i < count; i++)
+            txrx(data[i]);
     }
 
 private:
