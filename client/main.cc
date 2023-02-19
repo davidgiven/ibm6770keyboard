@@ -68,7 +68,10 @@ int main(int argc, char* argv[])
 
     if ((w != (report.width + 1)) || (h != (report.height + 1)))
     {
-        fprintf(stderr, "Image must be %d x %d\n", report.width, report.height);
+        fprintf(stderr,
+            "Image must be %d x %d\n",
+            report.width + 1,
+            report.height + 1);
         exit(1);
     }
 
