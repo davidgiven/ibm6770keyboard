@@ -70,12 +70,12 @@ the one with the reply attached to it. No, it's not necessarily the last...)
 `11`
 :   Reset.
 
-    Restarts the keyboard firmware in _normal mode_.
+:   Restarts the keyboard firmware in _normal mode_.
 
 `22!`
 :   Poll.
 
-    Replies with the current keyboard status flags.
+:   Replies with the current keyboard status flags.
 
 `33!`
 :   Fetches the next key from the event buffer. This has the scancode in the
@@ -88,56 +88,56 @@ buffer is empty, this returns 0 --- which _is_ a valid scancode! (It's `\``.)
 `55 f1 f2`
 :   Controls the cursor.
 
-    For `f1`: the bottom four bits control which line the cursor is on --- 0,
+:   For `f1`: the bottom four bits control which line the cursor is on --- 0,
     1, 2 or 4. Add `40` if you want 8-pixel high characters; the default is 16.
 
-    For `f2`:
+:   For `f2`:
 
-    `10`
-    :   Cursor is flashing.
-    `40`
-    :   Cursor is an underscore only; the default is an underscore and an
-    overscore.
+:   `10`
+:   :   Cursor is flashing.
+:   `40`
+:   :   Cursor is an underscore only; the default is an underscore and an
+:   overscore.
 
 `66 r x w`
 :   Controls the overlay window.
 
-    `r`: right margin, in characters.
+:   `r`: right margin, in characters.
     
-    `x`: unknown --- maybe a command for scrolling?
+:   `x`: unknown --- maybe a command for scrolling?
 
-    `w`: width of the window.
+:   `w`: width of the window.
 
 `77 x bytes...`
 :   Draws a character on the overlay window.
 
-    `x` is the character position. This is then followed by either 6 bytes or
+:   `x` is the character position. This is then followed by either 6 bytes or
     12 bytes, for 8-pixel and 16-pixel high characters respectively. See `55`.
 
 `88 nn`
 :   Sound control.
 
-    `nn` can be:
+:   `nn` can be:
 
-    `30`, `31`
-    :   Plays a low beep; long, short.
+:   `30`, `31`
+:   :   Plays a low beep; long, short.
 
-    `32`, `33`
-    :   Plays a high beep: long, short.
+:   `32`, `33`
+:   :   Plays a high beep: long, short.
 
-    `34`
-    :   Produces a click.
+:   `34`
+:   :   Produces a click.
 
-    `40`
-    :   Turns keyclicks on.
+:   `40`
+:   :   Turns keyclicks on.
 
-    `41`
-    :   Turns keyclicks off.
+:   `41`
+:   :   Turns keyclicks off.
 
 `99 hi lo`
 :   Sets the current video memory address.
 
-    Used for writing with `bb`.
+:   Used for writing with `bb`.
 
 `aa`
 :   Switches to _demo mode_.
@@ -145,7 +145,7 @@ buffer is empty, this returns 0 --- which _is_ a valid scancode! (It's `\``.)
 `bb n bytes...`
 :   Writes to video memory.
 
-    Takes `n` bytes and writes them consecutively to video memory, incrementing
+:   Takes `n` bytes and writes them consecutively to video memory, incrementing
     the write address each time. `n` can go up to 12 before the firmware
     command buffer overflows and the keyboard crashes.
 
@@ -155,7 +155,7 @@ buffer is empty, this returns 0 --- which _is_ a valid scancode! (It's `\``.)
 `dd hi1 lo1 hi2 lo2`
 :   Clears video memory.
 
-    Writes `{hi2,lo2}` zero bytes at address `{hi1,lo1}`. `lo1` seems to have
+:   Writes `{hi2,lo2}` zero bytes at address `{hi1,lo1}`. `lo1` seems to have
     to be 1 or odd things happen.
 
 `ee x`
