@@ -161,6 +161,15 @@ public:
             txrx(data[i]);
     }
 
+    void cmdClear(int row, int width)
+    {
+        waitForGpu();
+
+        txrxc(0xdd);
+        txrxw(0x200 * row + 1);
+        txrxw(width);
+    }
+
 private:
     void setUsartFlags(uint8_t flags)
     {

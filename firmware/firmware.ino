@@ -13,14 +13,35 @@ USBCompositeSerial USBSerial;
 #include "keyboardinterface.h"
 #include "hidlcd.h"
 
-class IBM6770Screen : public HIDLCD<480, 32>
+class IBM6770Screen : public HIDLCD
 {
 public:
+    static constexpr int width = 480;
+    static constexpr int height = 32;
+
+public:
     IBM6770Screen(USBHID& HID, KeyboardInterface& keyboardInterface):
-        HIDLCD(HID),
+        HIDLCD(HID, width, height),
+        _currentAddress(0xffff),
         _keyboardInterface(keyboardInterface)
     {
-        memset(_shadow, 0xff, sizeof(_shadow));
+        memset(_frontBuffer, 0xff, sizeof(_frontBuffer));
+        memset(_backBuffer, 0xff, sizeof(_backBuffer));
+    }
+
+    void setPixel(int x, int y, bool value) override
+    {
+        /* The buffer layout mirrors the device video memory layout, of
+         * 4*480*8bits, each byte representing a column. This makes it efficient
+         * to sync to the device. */
+
+        uint8_t* ptr = &_frontBuffer[(y / 8) * width + x];
+
+        uint8_t b = 1 << (y & 7);
+        if (value)
+            *ptr |= b;
+        else
+            *ptr &= ~b;
     }
 
     void sync()
@@ -29,59 +50,50 @@ public:
          * packet at a time to avoid blocking the main loop too long (as this
          * will cause keypresses to be delayed). */
 
-        uint16_t sendAddress = 0xffff;
-        uint16_t currentAddress = 0xffff;
+        const uint8_t* fptr = _frontBuffer;
+        uint8_t* bptr = _backBuffer;
+        for (;;)
+        {
+            if (fptr == &_frontBuffer[sizeof(_frontBuffer)])
+                return;
+            if (*fptr != *bptr)
+                break;
+            fptr++;
+            bptr++;
+        }
+
+        /* We found a difference. Determine the location and video memory
+         * address. */
+
+        int delta = fptr - _frontBuffer;
+        int row = delta / width;
+        int column = delta % width;
+        uint16_t address = 0x200 * row + column + 1;
+
+        if (address != _currentAddress)
+            _keyboardInterface.cmdSetGpuAddress(address);
+
         uint8_t sendBuffer[12];
         int sendCount = 0;
-
-        Bounds& dirtyArea = getDirtyArea();
-        int y1 = dirtyArea.y1 & ~7;
-        int y2 = (dirtyArea.y2 + 1) & ~7;
-
-        for (int y = y1; y < y2; y += 8)
+        while ((column != width) && (*fptr != *bptr) &&
+               (sendCount != sizeof(sendBuffer)))
         {
-            dirtyArea.y1 = y;
-            for (int x = dirtyArea.x1; x < dirtyArea.x2; x++)
-            {
-                if (sendCount == sizeof(sendBuffer))
-                    goto exit;
-
-                int line = y / 8;
-                uint8_t* s = &_shadow[line][x];
-                uint8_t b = getColumn(x, y);
-                if (*s != b)
-                {
-                    /* This column has changed, so we need to send it. */
-
-                    uint16_t address = 0x200 * line + x + 1;
-                    if (currentAddress != address)
-                    {
-                        /* Packet in progress --- finish up the current packet
-                         * and we'll make a new one next time round. */
-
-                        if (sendCount != 0)
-                            goto exit;
-
-                        _keyboardInterface.cmdSetGpuAddress(address);
-                        currentAddress = address;
-                    }
-
-                    *s = b;
-                    sendBuffer[sendCount++] = b;
-                    currentAddress++;
-                }
-            }
+            uint8_t b = *fptr++;
+            sendBuffer[sendCount++] = b;
+            *bptr++ = b;
+            address++;
+            column++;
         }
-        clearDirtyArea();
 
-    exit:
-        if (sendCount != 0)
-            _keyboardInterface.cmdSendGpuData(sendCount, sendBuffer);
+        _keyboardInterface.cmdSendGpuData(sendCount, sendBuffer);
+        _currentAddress = address;
     }
 
 private:
     KeyboardInterface& _keyboardInterface;
-    uint8_t _shadow[4][480];
+    uint16_t _currentAddress;
+    uint8_t _frontBuffer[width * height / 8];
+    uint8_t _backBuffer[sizeof(_frontBuffer)];
 };
 
 KeyboardInterface KeyboardInterface(
@@ -119,7 +131,7 @@ void loop()
 {
     Screen.process();
 
-    KeyboardInterface.cmdPoll();
+    uint8_t flags = KeyboardInterface.cmdPoll();
     if (KeyboardInterface.keysAvailable())
     {
         uint8_t key = KeyboardInterface.cmdGetKey();
@@ -132,6 +144,7 @@ void loop()
                 USBKeyboard.release(ascii);
         }
     }
-    if (Screen.isDirty() && !KeyboardInterface.gpuBusy())
+
+    if (!(flags & 0x20))
         Screen.sync();
 }

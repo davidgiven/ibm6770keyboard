@@ -1,8 +1,9 @@
 #include <cstdio>
 #include <cstdint>
 #include <string>
+#include <unistd.h>
 #include <hidapi.h>
-#include <netpbm/pbm.h>
+#include <stb_image.h>
 
 static constexpr uint8_t DISPLAY_ATTRIBUTES_REPORT_ID = 21;
 static constexpr uint8_t BLIT_REPORT_ID = 22;
@@ -23,9 +24,14 @@ typedef struct
     uint8_t data[50];
 } __attribute__((__packed__)) BlitReport;
 
+static void syntaxError()
+{
+    fprintf(stderr, "Syntax error\n");
+    exit(1);
+}
+
 int main(int argc, char* argv[])
 {
-    pbm_init(&argc, argv);
     hid_init();
 
     hid_device* dev = hid_open(0x1209, 0x6e01, nullptr);
@@ -43,7 +49,10 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    if ((argc >= 2) && (argv[1] == std::string("-q")))
+    if (argc != 2)
+        syntaxError();
+
+    if ((argv[1] == std::string("-q")))
     {
         printf("Size: %d x %d, depth: %d\n",
             report.width,
@@ -52,26 +61,35 @@ int main(int argc, char* argv[])
         exit(0);
     }
 
-    int w, h;
-    uint8_t** imageData = pbm_readpbm(stdin, &w, &h);
+    int w, h, n;
+    uint8_t* imageData = stbi_load(argv[1], &w, &h, &n, 1);
+    if (!imageData)
+        perror("cannot open file");
 
-    if ((w != (report.width+1)) || (h != (report.height+1)))
+    if ((w != (report.width + 1)) || (h != (report.height + 1)))
     {
         fprintf(stderr, "Image must be %d x %d\n", report.width, report.height);
         exit(1);
     }
 
-    for (uint16_t x = 0; x < w; x += 8)
+    for (int x = 0; x < w; x += 8)
     {
-        BlitReport br = {BLIT_REPORT_ID, x, 0, (uint16_t)(x + 8), (uint16_t)h};
-        for (uint16_t y = 0; y < h; y++)
-            br.data[y] = imageData[y][x / 8];
+        BlitReport br = {
+            BLIT_REPORT_ID, (uint16_t)x, 0, (uint16_t)(x + 8), (uint16_t)h};
+        for (int y = 0; y < h; y++)
+        {
+            uint8_t* ptr = &imageData[x + y * w];
+            br.data[y] = (!ptr[0] << 7) | (!ptr[1] << 6) | (!ptr[2] << 5) |
+                         (!ptr[3] << 4) | (!ptr[4] << 3) | (!ptr[5] << 2) |
+                         (!ptr[6] << 1) | (!ptr[7] << 0);
+        }
 
         if (hid_write(dev, (uint8_t*)&br, sizeof(br)) < 0)
         {
             perror("failed to send image data");
             exit(1);
         }
+        usleep(5000);
     }
 
     return 0;
