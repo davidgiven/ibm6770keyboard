@@ -55,8 +55,8 @@ int main(int argc, char* argv[])
     if ((argv[1] == std::string("-q")))
     {
         printf("Size: %d x %d, depth: %d\n",
-            report.width,
-            report.height,
+            report.width + 1,
+            report.height + 1,
             report.depth);
         exit(0);
     }
@@ -87,12 +87,17 @@ int main(int argc, char* argv[])
                          (!ptr[6] << 1) | (!ptr[7] << 0);
         }
 
-        if (hid_write(dev, (uint8_t*)&br, sizeof(br)) < 0)
+        for (;;)
         {
-            perror("failed to send image data");
-            exit(1);
+            int r = hid_write(dev, (uint8_t*)&br, sizeof(br));
+            if (r >= 0)
+                break;
+            if (errno != EPIPE)
+            {
+                perror("failed to send image data");
+                exit(1);
+            }
         }
-        usleep(5000);
     }
 
     return 0;
