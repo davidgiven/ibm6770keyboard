@@ -4,7 +4,7 @@
 #define LED_PIN PC13
 #define SERIALRX_PIN PA10
 #define SERIALTX_PIN PA9
-#define RESET_PIN PB8
+#define RESET_PIN PB3
 
 #include "keymap.h"
 
@@ -111,8 +111,10 @@ IBM6770Screen Screen(HID, KeyboardInterface);
 
 void setup()
 {
+    disableDebugPorts();
+
     pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, 1);
+    digitalWrite(LED_PIN, false);
 
     USBComposite.setProductId(0x6e01);
     USBComposite.setVendorId(0x1209);
@@ -130,6 +132,8 @@ void setup()
     KeyboardInterface.cmdSoundControl('A'); /* keyclick off */
     KeyboardInterface.cmdSoundControl('4'); /* make click */
     Screen.begin();
+
+    digitalWrite(LED_PIN, true);
 }
 
 void loop()

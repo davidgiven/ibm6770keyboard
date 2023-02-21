@@ -133,12 +133,12 @@ public:
     int height;
 
 private:
-    uint8_t _attributesBufferBytes[HID_BUFFER_SIZE(
+    uint8_t _attributesBufferBytes[HID_BUFFER_ALLOCATE_SIZE(
         sizeof(DisplayAttributesReport), DISPLAY_ATTRIBUTES_REPORT_ID)];
     HIDBuffer_t _attributesBuffer;
     DisplayAttributesReport _displayAttributesReport;
 
     uint8_t
-        _blitBufferBytes[HID_BUFFER_SIZE(sizeof(BlitReport), BLIT_REPORT_ID)];
+        _blitBufferBytes[HID_BUFFER_ALLOCATE_SIZE(sizeof(BlitReport), BLIT_REPORT_ID)];
     HIDBuffer_t _blitBuffer;
 };

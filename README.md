@@ -32,7 +32,7 @@ To use, you'll want to wire things up as following:
 | 5            | GND           | 0V                           |
 | 6            |               | not connected                |
 | 7            | PA9, PA10     | data                         |
-| 8            | PB8           | reset                        |
+| 8            | PB3           | reset                        |
 
 Note that the data line needs to be connected to both PA9 _and_ PA10. Also, if
 you want to use the LCD, you'll need to source a -5V supply from somewhere. I
