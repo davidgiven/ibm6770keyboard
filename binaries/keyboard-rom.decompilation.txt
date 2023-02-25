@@ -1,0 +1,1873 @@
+typedef unsigned char   undefined;
+
+typedef unsigned char    bool;
+typedef unsigned char    byte;
+typedef unsigned char    undefined1;
+typedef unsigned short    undefined2;
+typedef unsigned short    word;
+
+
+
+void main(void)
+
+{
+  bool bVar1;
+  undefined *puVar2;
+  byte *pbVar3;
+  byte bVar4;
+  
+  puVar2 = &DAT_INTMEM_7f;
+  do {
+    *puVar2 = 0;
+    puVar2 = puVar2 + -1;
+  } while (puVar2 != (undefined *)0x0);
+  SP = 0x67;
+  2b_6_keyclick_flag = true;
+  timer0_psw = 8;
+  serial_psw = 0x10;
+  BANK3_R5 = 0x18;
+  BYTE_INTMEM_59 = 3;
+  tick_counter = 0x10;
+  BYTE_INTMEM_54 = 0x7d;
+  keyboard_write_ptr = keyboard_buffer_start;
+  keyboard_read_ptr = keyboard_buffer_start;
+  pbVar3 = keyboard_bitmap;
+  do {
+    *pbVar3 = 0xff;
+    pbVar3 = pbVar3 + '\x01';
+  } while (pbVar3 != command_buffer_start);
+  P2_6_activate_keyboard = false;
+  RD = 0;
+  RD = 1;
+  P2_4 = false;
+  P2_5 = false;
+  P2_7_display_strobe = true;
+                    // Probe screen type?
+  P0_screen_out = 0x39;
+  P2_7_display_strobe = false;
+  bVar4 = P1_screen_in_;
+  bVar4 = ((bVar4 >> 7) << 1 | (bVar4 << 1) >> 7) + 1;
+  if (bVar4 >> 2 != 0) {
+    bVar4 = 1;
+  }
+  screen_height = 2;
+  do {
+    screen_height = screen_height << 1 | screen_height >> 7;
+    bVar4 = bVar4 - 1;
+  } while (bVar4 != 0);
+  screen_type = screen_height - 1;
+  P2_7_display_strobe = true;
+  P0_screen_out = 0x3e;
+  P2_7_display_strobe = false;
+  2b_5_cursor_8_pixels_high_flag = true;
+  cursor_flags = 1;
+  TMOD = 2;
+  TH0 = 6;
+  TR0 = 1;
+  SCON = 0x90;
+  PS = 1;
+  ES = 1;
+  ET0 = 1;
+  WR = 0;
+  bVar1 = F0_reading_command_flag;
+  if (bVar1 == false) {
+    poweron_reset();
+  }
+  else {
+    WR = 1;
+    last_response_byte = P1_screen_in_;
+    WR = 0;
+    bVar4 = P;
+    TB8 = bVar4 & 1;
+    SBUF = last_response_byte;
+    2a_1 = true;
+    DAT_INTMEM_5a = 0xff;
+    serial_psw = 0x30;
+  }
+  EA = true;
+  main_loop();
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void main_loop(void)
+
+{
+  byte current_command_byte;
+  
+  do {
+    if (((2f_0_main_thread_command_flag != false) &&
+        (-1 < (char)((2b_3 & 1U & 2b_7_cursor_flash_pending) << 7))) &&
+       ((char)((2b_3 & 1U | 2b_7_cursor_flash_pending) << 7) < '\0')) {
+      flash_cursor();
+    }
+  } while (::current_command_byte == 0);
+  if (2b_7_cursor_flash_pending != false) {
+    flash_cursor();
+  }
+  if (current_command_byte == 0x55) {
+    cmd_55_cursorcontrol(command_buffer_start);
+    return;
+  }
+  if (current_command_byte == 0x44) {
+    cursor_x_position = command_buffer_start[0];
+    exit_normal_command();
+    return;
+  }
+  if (current_command_byte == 0x66) {
+    cmd_66_overlaycontrol();
+    return;
+  }
+  if (current_command_byte == 0x77) {
+    cmd_77_drawcharacter();
+    return;
+  }
+  if (current_command_byte == 0x99) {
+    cmd_99_setvideoaddress();
+    return;
+  }
+  if (current_command_byte == 0xaa) {
+    cmd_aa();
+    return;
+  }
+  if (current_command_byte == 0xbb) {
+    cmd_bb_senddata(command_buffer_start);
+    return;
+  }
+  if (current_command_byte == 0xdd) {
+    cmd_dd_clear();
+    return;
+  }
+  FUN_CODE_05cc();
+  return;
+}
+
+
+
+void exit_normal_command(void)
+
+{
+  T0 = true;
+  current_command_byte = 0;
+  if (2f_0_main_thread_command_flag) {
+    BYTE_INTMEM_54 = 0x7d;
+    2b_3 = true;
+  }
+  else {
+    flash_cursor();
+  }
+  main_loop();
+  return;
+}
+
+
+
+void cmd_55_cursorcontrol(byte *command_ptr)
+
+{
+  2b_5_cursor_8_pixels_high_flag = (bool)(*command_ptr >> 6 & 1);
+  cursor_y = *command_ptr & 0xf;
+  if (-1 < (cursor_y < screen_height) << 7) {
+    cursor_y = screen_height - 1;
+  }
+  cursor_flags = cursor_flags & 0xf0 | command_ptr['\x01'] >> 4 & 7;
+  exit_normal_command();
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void flash_cursor(void)
+
+{
+  byte *pbVar1;
+  undefined1 *puVar2;
+  byte bVar3;
+  char cVar4;
+  byte bVar5;
+  
+  if (cursor_x_position != 0) {
+    compute_cursor_position(cursor_x_position);
+    if (((cursor_flags >> 2 & 1) == 1) || ((cursor_flags >> 1 & 1) != 1)) {
+      FUN_CODE_0656();
+      P0_screen_out = 0xff;
+      nop();
+      EA = false;
+      bVar3 = P2;
+      P2 = bVar3 | 0x30;
+      P2_7_display_strobe = true;
+      P2_7_display_strobe = false;
+      EA = true;
+      pbVar1 = &DAT_INTMEM_4d;
+      cVar4 = '\x06';
+      nop();
+      nop();
+      nop();
+      do {
+        EA = false;
+        P2_7_display_strobe = true;
+        bVar3 = P0_screen_out;
+        P2_7_display_strobe = false;
+        EA = true;
+        *pbVar1 = bVar3 ^ 1;
+        pbVar1 = pbVar1 + '\x01';
+        cVar4 = cVar4 + -1;
+      } while (cVar4 != '\0');
+      puVar2 = &DAT_INTMEM_4d;
+      cVar4 = '\x06';
+      FUN_CODE_0656();
+      nop();
+      P2_4 = false;
+      P2_5 = true;
+      do {
+        EA = false;
+        P0_screen_out = *puVar2;
+        P2_7_display_strobe = true;
+        P2_7_display_strobe = false;
+        EA = true;
+        puVar2 = puVar2 + '\x01';
+        nop();
+        cVar4 = cVar4 + -1;
+      } while (cVar4 != '\0');
+    }
+    if (((cursor_flags >> 2 & 1) == 0) || ((cursor_flags >> 1 & 1) != 0)) {
+      if (2b_5_cursor_8_pixels_high_flag != false) {
+        DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+      }
+      FUN_CODE_0656();
+      P0_screen_out = 0xff;
+      nop();
+      EA = false;
+      bVar3 = P2;
+      P2 = bVar3 | 0x30;
+      P2_7_display_strobe = true;
+      P2_7_display_strobe = false;
+      EA = true;
+      pbVar1 = &DAT_INTMEM_4d;
+      cVar4 = '\x06';
+      nop();
+      nop();
+      nop();
+      do {
+        EA = false;
+        P2_7_display_strobe = true;
+        bVar3 = P0_screen_out;
+        P2_7_display_strobe = false;
+        EA = true;
+        *pbVar1 = bVar3 ^ 0x80;
+        pbVar1 = pbVar1 + '\x01';
+        cVar4 = cVar4 + -1;
+      } while (cVar4 != '\0');
+      puVar2 = &DAT_INTMEM_4d;
+      cVar4 = '\x06';
+      FUN_CODE_0656();
+      nop();
+      P2_4 = false;
+      P2_5 = true;
+      do {
+        EA = false;
+        P0_screen_out = *puVar2;
+        P2_7_display_strobe = true;
+        P2_7_display_strobe = false;
+        EA = true;
+        puVar2 = puVar2 + '\x01';
+        nop();
+        cVar4 = cVar4 + -1;
+      } while (cVar4 != '\0');
+      if (2b_5_cursor_8_pixels_high_flag != false) {
+        DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+      }
+    }
+    if (((cursor_flags >> 2 & 1) != 0) && ((cursor_flags >> 1 & 1) != 0)) {
+      if (2b_5_cursor_8_pixels_high_flag == false) {
+        bVar3 = 0x7e;
+      }
+      else {
+        bVar3 = 0xfe;
+      }
+      FUN_CODE_0656();
+      FUN_CODE_0645();
+      bVar5 = FUN_CODE_0645();
+      bVar5 = bVar5 ^ bVar3;
+      FUN_CODE_0656();
+      send_to_screen(bVar5);
+      if (2b_5_cursor_8_pixels_high_flag != false) {
+        DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+        FUN_CODE_0656();
+        FUN_CODE_0645();
+        bVar5 = FUN_CODE_0645();
+        bVar5 = bVar5 ^ 0x7f;
+        FUN_CODE_0656();
+        send_to_screen(bVar5);
+        DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+      }
+      FUN_CODE_0656();
+      FUN_CODE_0645();
+      bVar5 = FUN_CODE_0645();
+      bVar5 = bVar5 ^ bVar3;
+      FUN_CODE_0656();
+      send_to_screen(bVar5);
+      if (2b_5_cursor_8_pixels_high_flag != false) {
+        DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+        FUN_CODE_0656();
+        FUN_CODE_0645();
+        bVar3 = FUN_CODE_0645();
+        bVar3 = bVar3 ^ 0x7f;
+        FUN_CODE_0656();
+        send_to_screen(bVar3);
+      }
+    }
+  }
+  2b_7_cursor_flash_pending = (bool)(2b_7_cursor_flash_pending ^ 1);
+  return;
+}
+
+
+
+void cmd_66_overlaycontrol(void)
+
+{
+  byte cVar1;
+  byte cVar2;
+  byte cVar3;
+  byte cVar4;
+  char cVar5;
+  char cVar6;
+  byte bVar7;
+  
+  if (command_buffer_start[2] != 0) {
+    if (command_buffer_start[0] == 0) {
+      command_buffer_start[0] = 1;
+    }
+    if (command_buffer_start[1] == 0) {
+      command_buffer_start[1] = 1;
+    }
+    if (command_buffer_start[1] == command_buffer_start[0]) {
+      cVar3 = 1;
+      cVar4 = 1;
+    }
+    else if ((command_buffer_start[1] < command_buffer_start[0]) << 7 < '\0') {
+      bVar7 = command_buffer_start[1] + command_buffer_start[2];
+      if (-1 < (command_buffer_start[0] - command_buffer_start[1] <
+               command_buffer_start[2] -
+               (((command_buffer_start[0] < command_buffer_start[1]) << 7) >> 7)) << 7) {
+        cVar5 = ~bVar7 + command_buffer_start[0] + '\x02';
+        do {
+          FUN_CODE_0354(bVar7);
+          bVar7 = bVar7 + 1;
+          command_buffer_start[1] = command_buffer_start[1] + 1;
+          cVar5 = cVar5 + -1;
+        } while (cVar5 != '\0');
+      }
+      cVar3 = (command_buffer_start[0] + 1) - command_buffer_start[1];
+      cVar4 = 1;
+    }
+    else {
+      cVar5 = command_buffer_start[1] - command_buffer_start[2];
+      if (-1 < (command_buffer_start[1] - command_buffer_start[0] <
+               command_buffer_start[2] -
+               (((command_buffer_start[1] < command_buffer_start[0]) << 7) >> 7)) << 7) {
+        cVar6 = (cVar5 + '\x01') - command_buffer_start[0];
+        do {
+          FUN_CODE_0354(cVar5);
+          cVar5 = cVar5 + -1;
+          command_buffer_start[1] = command_buffer_start[1] - 1;
+          cVar6 = cVar6 + -1;
+        } while (cVar6 != '\0');
+      }
+      cVar3 = (command_buffer_start[1] + 1) - command_buffer_start[0];
+      cVar4 = 0xff;
+    }
+    do {
+      compute_cursor_position(command_buffer_start[1]);
+      FUN_CODE_0656();
+      cVar1 = 6;
+      P2_4 = false;
+      P2_5 = true;
+      do {
+        EA = false;
+        P0_screen_out = 0;
+        P2_7_display_strobe = true;
+        P2_7_display_strobe = false;
+        EA = true;
+        nop();
+        nop();
+        nop();
+        cVar1 = cVar1 - 1;
+      } while (cVar1 != 0);
+      if (2b_5_cursor_8_pixels_high_flag != false) {
+        DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+        FUN_CODE_0656();
+        cVar2 = 6;
+        P2_4 = false;
+        P2_5 = true;
+        do {
+          EA = false;
+          P0_screen_out = 0;
+          P2_7_display_strobe = true;
+          P2_7_display_strobe = false;
+          EA = true;
+          nop();
+          nop();
+          nop();
+          cVar2 = cVar2 - 1;
+        } while (cVar2 != 0);
+      }
+      command_buffer_start[1] = cVar4 + command_buffer_start[1];
+      cVar3 = cVar3 - 1;
+    } while (cVar3 != 0);
+  }
+  exit_normal_command();
+  return;
+}
+
+
+
+void FUN_CODE_0354(byte param_1)
+
+{
+  byte bVar1;
+  byte *pbVar2;
+  char cVar3;
+  
+  compute_cursor_position(param_1);
+  FUN_CODE_0656();
+  nop();
+  P0_screen_out = 0xff;
+  EA = false;
+  bVar1 = P2;
+  P2 = bVar1 | 0x30;
+  P2_7_display_strobe = true;
+  P2_7_display_strobe = false;
+  EA = true;
+  pbVar2 = command_buffer_start + '\x03';
+  cVar3 = '\x05';
+  nop();
+  nop();
+  do {
+    nop();
+    EA = false;
+    P2_7_display_strobe = true;
+    bVar1 = P0_screen_out;
+    *pbVar2 = bVar1;
+    P2_7_display_strobe = false;
+    EA = true;
+    pbVar2 = pbVar2 + '\x01';
+    nop();
+    cVar3 = cVar3 + -1;
+  } while (cVar3 != '\0');
+  if (2b_5_cursor_8_pixels_high_flag != false) {
+    DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+    FUN_CODE_0656();
+    nop();
+    P0_screen_out = 0xff;
+    EA = false;
+    bVar1 = P2;
+    P2 = bVar1 | 0x30;
+    P2_7_display_strobe = true;
+    P2_7_display_strobe = false;
+    EA = true;
+    cVar3 = '\x05';
+    nop();
+    nop();
+    nop();
+    do {
+      nop();
+      EA = false;
+      P2_7_display_strobe = true;
+      bVar1 = P0_screen_out;
+      *pbVar2 = bVar1;
+      P2_7_display_strobe = false;
+      EA = true;
+      pbVar2 = pbVar2 + '\x01';
+      nop();
+      cVar3 = cVar3 + -1;
+    } while (cVar3 != '\0');
+    DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+  }
+  compute_cursor_position(command_buffer_start[1]);
+  FUN_CODE_0656();
+  pbVar2 = command_buffer_start + '\x03';
+  cVar3 = '\x05';
+  P2_4 = false;
+  P2_5 = true;
+  do {
+    EA = false;
+    P0_screen_out = *pbVar2;
+    P2_7_display_strobe = true;
+    P2_7_display_strobe = false;
+    EA = true;
+    pbVar2 = pbVar2 + '\x01';
+    nop();
+    cVar3 = cVar3 + -1;
+  } while (cVar3 != '\0');
+  if (2b_5_cursor_8_pixels_high_flag != false) {
+    DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+    FUN_CODE_0656();
+    cVar3 = '\x05';
+    P2_4 = false;
+    P2_5 = true;
+    do {
+      EA = false;
+      P0_screen_out = *pbVar2;
+      P2_7_display_strobe = true;
+      P2_7_display_strobe = false;
+      EA = true;
+      pbVar2 = pbVar2 + '\x01';
+      nop();
+      cVar3 = cVar3 + -1;
+    } while (cVar3 != '\0');
+    DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+  }
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void cmd_77_drawcharacter(void)
+
+{
+  byte *command_buffer;
+  byte *pbVar1;
+  byte cVar2;
+  char cVar5;
+  byte cVar3;
+  byte cVar4;
+  byte bVar6;
+  
+  bVar6 = *command_buffer;
+  if (bVar6 == 0) {
+    bVar6 = 1;
+  }
+  compute_cursor_position(bVar6);
+  FUN_CODE_0656();
+  nop();
+  P0_screen_out = 0xff;
+  EA = false;
+  bVar6 = P2;
+  P2 = bVar6 | 0x30;
+  P2_7_display_strobe = true;
+  P2_7_display_strobe = false;
+  EA = true;
+  cVar2 = 5;
+  nop();
+  nop();
+  nop();
+  nop();
+  do {
+    EA = false;
+    P2_7_display_strobe = true;
+    bVar6 = P0_screen_out;
+    P2_7_display_strobe = false;
+    EA = true;
+    command_buffer = command_buffer + '\x01';
+    *command_buffer = bVar6 | *command_buffer;
+    cVar2 = cVar2 - 1;
+  } while (cVar2 != 0);
+  if (2b_5_cursor_8_pixels_high_flag != false) {
+    DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+    FUN_CODE_0656();
+    nop();
+    P0_screen_out = 0xff;
+    EA = false;
+    bVar6 = P2;
+    P2 = bVar6 | 0x30;
+    P2_7_display_strobe = true;
+    P2_7_display_strobe = false;
+    EA = true;
+    cVar5 = '\x05';
+    nop();
+    nop();
+    nop();
+    nop();
+    do {
+      EA = false;
+      P2_7_display_strobe = true;
+      bVar6 = P0_screen_out;
+      P2_7_display_strobe = false;
+      EA = true;
+      command_buffer = command_buffer + '\x01';
+      *command_buffer = bVar6 | *command_buffer;
+      cVar5 = cVar5 + -1;
+    } while (cVar5 != '\0');
+    DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+  }
+  FUN_CODE_0656();
+  pbVar1 = command_buffer_start + '\x01';
+  P2_4 = false;
+  P2_5 = true;
+  cVar3 = 5;
+  do {
+    EA = false;
+    P0_screen_out = *pbVar1;
+    P2_7_display_strobe = true;
+    P2_7_display_strobe = false;
+    EA = true;
+    pbVar1 = pbVar1 + '\x01';
+    nop();
+    cVar3 = cVar3 - 1;
+  } while (cVar3 != 0);
+  if (2b_5_cursor_8_pixels_high_flag != false) {
+    DAT_INTMEM_5f = DAT_INTMEM_5f + 1 & screen_type;
+    FUN_CODE_0656();
+    cVar4 = 5;
+    P2_4 = false;
+    P2_5 = true;
+    do {
+      EA = false;
+      P0_screen_out = *pbVar1;
+      P2_7_display_strobe = true;
+      P2_7_display_strobe = false;
+      EA = true;
+      pbVar1 = pbVar1 + '\x01';
+      nop();
+      cVar4 = cVar4 - 1;
+    } while (cVar4 != 0);
+    DAT_INTMEM_5f = DAT_INTMEM_5f - 1 & screen_type;
+  }
+  exit_normal_command();
+  return;
+}
+
+
+
+void cmd_99_setvideoaddress(byte *param_1)
+
+{
+  2b_0 = (bool)(*param_1 & 1);
+  DAT_INTMEM_63 = *param_1 >> 1 & 0xf;
+  if (-1 < (DAT_INTMEM_63 < screen_height) << 7) {
+    DAT_INTMEM_63 = screen_height - 1;
+  }
+  current_screen_address = param_1['\x01'] - 1;
+  if (current_screen_address == -1) {
+    if (2b_0 == false) {
+      current_screen_address = '\0';
+    }
+    else {
+      2b_0 = false;
+    }
+  }
+  exit_normal_command();
+  return;
+}
+
+
+
+void cmd_aa(void)
+
+{
+  char cVar1;
+  byte bVar2;
+  
+  bVar2 = P2;
+  P2 = bVar2 | 0xf;
+  DAT_INTMEM_5f = 0;
+  do {
+    FUN_CODE_0656();
+    bVar2 = 0xff;
+    cVar1 = '0';
+    do {
+      send_to_screen(bVar2);
+      cVar1 = cVar1 + -1;
+    } while (cVar1 != '\0');
+    DAT_INTMEM_5f = DAT_INTMEM_5f + 1;
+  } while ((DAT_INTMEM_5f < screen_height) << 7 < '\0');
+  cursor_x_position = 0;
+  exit_normal_command();
+  return;
+}
+
+
+
+void cmd_bb_senddata(byte *command_buffer)
+
+{
+  byte bVar1;
+  byte count;
+  byte bVar2;
+  
+  count = *command_buffer;
+  do {
+    bVar2 = current_screen_address / 0x30;
+    if (2b_0 != false) {
+      bVar2 = bVar2 + ('\x05' - ((char)((current_screen_address % 0x30 >> 5) << 7) >> 7));
+    }
+    bVar1 = P2;
+    P2 = bVar1 & 0xf0;
+    bVar1 = P2;
+    P2 = bVar1 | bVar2;
+    DAT_INTMEM_5f = DAT_INTMEM_63;
+    FUN_CODE_0656();
+    command_buffer = command_buffer + '\x01';
+    send_to_screen(*command_buffer);
+    current_screen_address = current_screen_address + 1;
+    if (current_screen_address == 0) {
+      if (2b_0 == false) {
+        2b_0 = true;
+      }
+      else {
+        2b_0 = false;
+      }
+    }
+    count = count - 1;
+  } while (count != 0);
+  exit_normal_command();
+  return;
+}
+
+
+
+void cmd_dd_clear(byte *command_buffer)
+
+{
+  byte bVar1;
+  byte bVar2;
+  byte bVar3;
+  
+  2b_0 = (bool)(*command_buffer & 1);
+  DAT_INTMEM_63 = *command_buffer >> 1 & 0xf;
+  if (-1 < (DAT_INTMEM_63 < screen_height) << 7) {
+    DAT_INTMEM_63 = screen_height - 1;
+  }
+  current_screen_address = command_buffer['\x01'] - 1;
+  if (current_screen_address == 0xff) {
+    if (2b_0 == false) {
+      current_screen_address = 0;
+    }
+    else {
+      2b_0 = false;
+    }
+  }
+  2c_4 = command_buffer['\x02'] & 1;
+  bVar2 = command_buffer['\x03'] - 1;
+  if (bVar2 == 0xff) {
+    if (2c_4 == 0) {
+      bVar2 = 0;
+    }
+    else {
+      2c_4 = 0;
+    }
+  }
+  bVar3 = current_screen_address;
+  if (2c_4 == 0) {
+    if (2b_0 == true) goto LAB_CODE_05c9;
+LAB_CODE_057b:
+    if ((bVar2 < current_screen_address) << 7 < '\0') goto LAB_CODE_05c9;
+  }
+  else if (2b_0 != false) goto LAB_CODE_057b;
+LAB_CODE_0580:
+  do {
+    current_screen_address = bVar3;
+    bVar3 = current_screen_address / 0x30;
+    if (2b_0 != false) {
+      bVar3 = bVar3 + ('\x05' - ((char)((current_screen_address % 0x30 >> 5) << 7) >> 7));
+    }
+    bVar1 = P2;
+    P2 = bVar1 & 0xf0;
+    bVar1 = P2;
+    P2 = bVar1 | bVar3;
+    DAT_INTMEM_5f = DAT_INTMEM_63;
+    FUN_CODE_0656();
+    send_to_screen(0);
+    bVar3 = current_screen_address + 1;
+    if (bVar3 == 0) {
+      2b_0 = true;
+    }
+    if (2c_4 == 0) {
+      if (2b_0 == true) break;
+    }
+    else if (2b_0 == false) goto LAB_CODE_0580;
+  } while (-1 < (bVar2 < bVar3) << 7);
+  if (current_screen_address == 0xff) {
+    2b_0 = false;
+  }
+LAB_CODE_05c9:
+  exit_normal_command();
+  return;
+}
+
+
+
+void FUN_CODE_05cc(byte *param_1)
+
+{
+  byte bVar1;
+  byte cVar2;
+  byte bVar2;
+  
+  bVar2 = P3;
+  P3 = bVar2 & 0xf3;
+  bVar2 = P2;
+  P2 = bVar2 | 0xf;
+  if ((*param_1 >> 5 & 1) == 1) {
+    cursor_flags = cursor_flags - 0x40;
+  }
+  else {
+    cursor_flags = cursor_flags + 0x40;
+  }
+  bVar2 = P2;
+  P2 = bVar2 & 0xcf;
+  EA = false;
+  P2_7_display_strobe = true;
+  P0_screen_out = cursor_flags & 0xc0 | 0x3e;
+  P2_7_display_strobe = false;
+  EA = true;
+  if ((*param_1 >> 6 & 1) != 1) {
+    bVar2 = cursor_flags;
+    if ((*param_1 >> 5 & 1) != 1) {
+      bVar2 = cursor_flags - 0x40;
+    }
+    bVar1 = P2;
+    P2 = bVar1 & 0xcf;
+    EA = false;
+    P2_7_display_strobe = true;
+    P0_screen_out = bVar2 & 0xc0;
+    P2_7_display_strobe = false;
+    EA = true;
+    cVar2 = 0x30;
+    bVar2 = 0;
+    do {
+      send_to_screen(bVar2);
+      cVar2 = cVar2 - 1;
+    } while (cVar2 != 0);
+  }
+  T0 = true;
+  current_command_byte = 0;
+  if (2f_0_main_thread_command_flag == true) {
+    BYTE_INTMEM_54 = 0x7d;
+    2b_3 = true;
+  }
+  else {
+    flash_cursor();
+  }
+  main_loop();
+  return;
+}
+
+
+
+byte compute_cursor_position(byte pos)
+
+{
+  byte x;
+  byte y;
+  byte bVar1;
+  
+  y = (pos - 1) / 0x50;
+  x = (pos - 1) % 0x50;
+  bVar1 = cursor_y + y;
+  if (2b_5_cursor_8_pixels_high_flag) {
+    bVar1 = bVar1 + y;
+  }
+  DAT_INTMEM_5f = bVar1 & screen_type;
+  y = P2;
+  P2 = y & 0xf0;
+  y = P2;
+  P2 = y | x / 8;
+  return (x % 8) * '\x06';
+}
+
+
+
+undefined FUN_CODE_0645(void)
+
+{
+  undefined uVar1;
+  byte bVar2;
+  
+  P0_screen_out = 0xff;
+  EA = false;
+  bVar2 = P2;
+  P2 = bVar2 | 0x30;
+  P2_7_display_strobe = true;
+  uVar1 = P0_screen_out;
+  P2_7_display_strobe = false;
+  EA = true;
+  return uVar1;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void FUN_CODE_0656(void)
+
+{
+  byte bVar1;
+  byte in_B;
+  
+  bVar1 = P3;
+  P3 = bVar1 & 0xf3;
+  bVar1 = P3;
+  P3 = bVar1 | DAT_INTMEM_5f & 0xc;
+  bVar1 = P2;
+  P2 = bVar1 & 0xcf;
+  EA = false;
+  P2_7_display_strobe = true;
+  P0_screen_out = (DAT_INTMEM_5f << 7) >> 1 | (DAT_INTMEM_5f >> 1) << 7 | in_B;
+  P2_7_display_strobe = false;
+  EA = true;
+  return;
+}
+
+
+
+void send_to_screen(byte b)
+
+{
+  P2_4 = false;
+  P2_5 = true;
+  EA = false;
+  P0_screen_out = b;
+  P2_7_display_strobe = true;
+  P2_7_display_strobe = false;
+  EA = true;
+  return;
+}
+
+
+
+// WARNING: Unable to use type for symbol cVar1
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void timer0_interrupt_handler(void)
+
+{
+  byte bVar1;
+  bool bVar2;
+  byte keyboard_probe_r0;
+  byte *pbVar3;
+  byte count;
+  byte keyboard_buffer_write_ptr;
+  byte *buffer_ptr;
+  byte bVar3;
+  byte pbVar6;
+  byte *ptr;
+  byte *pbVar4;
+  byte bVar5;
+  byte bVar6;
+  byte bVar10;
+  word *in_DPTR;
+  byte *font_ptr;
+  undefined in_stack_000000ff;
+  char cVar1;
+  byte current_char;
+  byte bVar7;
+  
+  tick_counter = tick_counter - 1;
+  if (tick_counter == 0) {
+    tick_counter = 0x10;
+    if (BYTE_INTMEM_2e != 0) {
+      pbVar3 = keyboard_bitmap;
+      BANK3_R6 = 0x10;
+      bVar3 = 0xff;
+      do {
+        bVar5 = timer0_psw;
+        bVar3 = bVar3 & *pbVar3;
+        bVar7 = ((char)bVar3 < '\0') << 5;
+        bVar6 = (bVar3 == 0) << 1;
+        timer0_psw = bVar5 & 0xdd | bVar7 | bVar6;
+        pbVar3 = pbVar3 + '\x01';
+        BANK3_R6 = BANK3_R6 - 1;
+      } while (BANK3_R6 != 0);
+      BANK3_R7 = keyboard_probe_r0;
+      if ((bVar3 == 0xff) && (BYTE_INTMEM_2e = BYTE_INTMEM_2e - 1, BYTE_INTMEM_2e == 0)) {
+        BYTE_INTMEM_2e = 0xd;
+        timer0_psw = bVar5 & 0x5d | bVar7 | bVar6 | ((byte)in_DPTR < 0x22) << 7;
+        if ((byte)in_DPTR == 0x22) {
+          in_DPTR = lookup_table_1;
+        }
+        pbVar6 = keyboard_buffer_write_ptr + 1;
+        if (pbVar6 == 0x29) {
+          pbVar6 = (byte)keyboard_buffer_start;
+        }
+        EA = false;
+        nop();
+        nop();
+        BANK3_R5 = BANK3_R5 & 0x7f | (pbVar6 < keyboard_read_ptr) << 7;
+        if ((byte *)pbVar6 != keyboard_read_ptr) {
+          *(byte *)pbVar6 = *(byte *)in_DPTR;
+          in_DPTR = (word *)((short)in_DPTR + 1);
+          keyboard_buffer_write_ptr = pbVar6;
+        }
+        EA = true;
+      }
+    }
+    BYTE_INTMEM_54 = BYTE_INTMEM_54 - 1;
+    if (BYTE_INTMEM_54 == 0) {
+      BYTE_INTMEM_54 = 0x7d;
+      2b_3 = !2b_3;
+    }
+  }
+  bVar3 = sound_length_tick_counter;
+                    // 
+                    // Handles the sound length.
+                    // 
+  if (sound_length_tick_counter != 0) {
+    EA = false;
+    nop();
+    nop();
+    sound_length_tick_counter = sound_length_tick_counter - 1;
+    if (sound_length_tick_counter == 0) {
+      sound_length_seconds = sound_length_seconds - 1;
+      if (sound_length_seconds == 0) {
+        if (2b_4_play_sound_flag_) {
+          2b_4_play_sound_flag_ = false;
+        }
+        else {
+          2b_4_play_sound_flag_ = true;
+          P3_5_speaker = 1;
+          sound_length_tick_counter = 0x91;
+          sound_length_seconds = 2;
+        }
+      }
+      else {
+        sound_length_tick_counter = bVar3 - 2;
+      }
+    }
+    EA = true;
+  }
+                    // 
+                    // Actually generates the tone.
+                    // 
+  if ((sound_length_tick_counter != 0) && (2b_4_play_sound_flag_ != true)) {
+    if (pitch_tick_counter == 0) {
+      pitch_tick_counter = pitch_value;
+      bVar3 = P3_5_speaker;
+      P3_5_speaker = bVar3 ^ 1;
+    }
+    else {
+      pitch_tick_counter = pitch_tick_counter - 1;
+    }
+  }
+  BYTE_INTMEM_59 = BYTE_INTMEM_59 - 1;
+  if (BYTE_INTMEM_59 != 0) goto LAB_CODE_06dc;
+  if (2d_7) {
+    2d_7 = false;
+    DAT_INTMEM_64 = P2;
+    bVar3 = P2;
+    P2 = bVar3 & 0xf0;
+    bVar3 = BANK3_R5 & 0xdd;
+    bVar6 = P2;
+    P2 = bVar6 | keyboard_probe_r0;
+    P2_6_activate_keyboard = true;
+    bVar6 = P1_screen_in_;
+    P2_6_activate_keyboard = false;
+    if (bVar6 == BANK3_R2) {
+      ptr = (byte *)(keyboard_buffer_write_ptr + '\x01');
+      bVar3 = BANK3_R5 & 0x5d;
+      if (ptr == &keyboard_buffer_end) {
+        ptr = keyboard_buffer_start;
+      }
+      if (ptr == keyboard_read_ptr) {
+        2a_6_keyboard_buffer_full_flag = 1;
+        goto LAB_CODE_0887;
+      }
+      pbVar4 = (byte *)(keyboard_probe_r0 + 0x30);
+      bVar3 = *pbVar4;
+      *pbVar4 = BANK3_R2;
+      bVar3 = bVar3 ^ *pbVar4;
+      if ((bVar3 & 0x80) == 0) {
+        if ((bVar3 & 0x40) == 0) {
+          if ((bVar3 & 0x20) == 0) {
+            if ((bVar3 & 0x10) == 0) {
+              if ((bVar3 & 8) == 0) {
+                if ((bVar3 & 4) == 0) {
+                  if ((bVar3 & 2) == 0) {
+                    bVar3 = bVar3 & 0xfe;
+                    bVar6 = 0;
+                    BANK3_R2 = BANK3_R2 & 1;
+                  }
+                  else {
+                    bVar3 = bVar3 & 0xfd;
+                    bVar6 = 1;
+                    BANK3_R2 = BANK3_R2 & 2;
+                  }
+                }
+                else {
+                  bVar3 = bVar3 & 0xfb;
+                  bVar6 = 2;
+                  BANK3_R2 = BANK3_R2 & 4;
+                }
+              }
+              else {
+                bVar3 = bVar3 & 0xf7;
+                bVar6 = 3;
+                BANK3_R2 = BANK3_R2 & 8;
+              }
+            }
+            else {
+              bVar3 = bVar3 & 0xef;
+              bVar6 = 4;
+              BANK3_R2 = BANK3_R2 & 0x10;
+            }
+          }
+          else {
+            bVar3 = bVar3 & 0xdf;
+            bVar6 = 5;
+            BANK3_R2 = BANK3_R2 & 0x20;
+          }
+        }
+        else {
+          bVar3 = bVar3 & 0xbf;
+          bVar6 = 6;
+          BANK3_R2 = BANK3_R2 & 0x40;
+        }
+      }
+      else {
+        bVar3 = bVar3 & 0x7f;
+        bVar6 = 7;
+        BANK3_R2 = BANK3_R2 & 0x80;
+      }
+      if (bVar3 != 0) {
+        *pbVar4 = bVar3 ^ *pbVar4;
+        F0_reading_command_flag = true;
+      }
+      bVar5 = (BANK3_R2 != 0) << 7;
+      if (((-1 < (char)(BANK3_R5 & 0x5d | bVar5 | ((char)(BANK3_R2 - 1) < '\0') << 5 |
+                       (BANK3_R2 == 1) << 1)) && (BYTE_INTMEM_2e = 0, 2b_6_keyclick_flag)) &&
+         (sound_length_tick_counter == 0)) {
+        sound_length_tick_counter = 0x11;
+        sound_length_seconds = 1;
+        pitch_tick_counter = 0;
+        pitch_value = 0;
+      }
+      bVar3 = BANK3_R5 & 0x5d;
+      EA = false;
+      nop();
+      nop();
+      keyboard_write_ptr = ptr;
+      *(byte *)keyboard_buffer_write_ptr =
+           (keyboard_probe_r0 >> 4 | keyboard_probe_r0 * '\x10') >> 1 | bVar5 | bVar6;
+      EA = true;
+      bVar2 = F0_reading_command_flag;
+      if (bVar2 == false) goto LAB_CODE_0887;
+      F0_reading_command_flag = false;
+    }
+    else {
+LAB_CODE_0887:
+      keyboard_probe_r0 = keyboard_probe_r0 + 1;
+      bVar3 = bVar3 & 0x7f;
+      if (keyboard_probe_r0 == 0x10) {
+        keyboard_probe_r0 = 0;
+      }
+    }
+    P2 = DAT_INTMEM_64;
+    BANK3_R5 = bVar3;
+  }
+  DAT_INTMEM_64 = P2;
+  bVar3 = P2;
+  P2 = bVar3 & 0xf0;
+  bVar3 = P2;
+  P2 = bVar3 | keyboard_probe_r0;
+  P2_6_activate_keyboard = true;
+  BANK3_R2 = P1_screen_in_;
+  P2_6_activate_keyboard = false;
+  ptr = (byte *)(keyboard_probe_r0 + 0x30);
+  bVar6 = ((char)ptr < '\0') << 5;
+  bVar3 = (ptr == (byte *)0x0) << 1;
+  bVar10 = BANK3_R5 & 0x5d | (0xcf < keyboard_probe_r0) << 7 | bVar6 | bVar3;
+  if (*ptr == BANK3_R2) {
+    BYTE_INTMEM_59 = 3;
+    2c_2 = false;
+    bVar10 = BANK3_R5 & 0x5d | bVar6 | bVar3 | (keyboard_probe_r0 + 1 < 0x10) << 7;
+  }
+  else if (2c_2) {
+    bVar3 = BANK3_R5 & 0x5d | bVar6 | bVar3;
+    bVar10 = bVar3 | (stack_base < BANK3_R2) << 7;
+    if (stack_base == BANK3_R2) {
+      BYTE_INTMEM_59 = 5;
+      bVar6 = keyboard_probe_r0 + 1;
+      if (keyboard_probe_r0 + 1 == 0x10) {
+        bVar6 = 0;
+      }
+      do {
+        current_keyboard_probe_value = bVar6;
+        bVar5 = P2;
+        bVar5 = bVar5 & 0xf0;
+        P2 = bVar5;
+        bVar6 = ((char)bVar5 < '\0') << 5;
+        bVar5 = (bVar5 == 0) << 1;
+        bVar10 = bVar3 & 0xdd | bVar6 | bVar5;
+        bVar1 = P2;
+        P2 = bVar1 | current_keyboard_probe_value;
+        P2_6_activate_keyboard = true;
+        bVar1 = P1_screen_in_;
+        P2_6_activate_keyboard = false;
+        if (~bVar1 != 0) {
+          bVar10 = bVar3 & 0x5d | bVar6 | bVar5;
+          bVar3 = ~bVar1;
+          do {
+            bVar5 = bVar3 >> 1 | bVar10 & 0x80;
+            bVar6 = bVar3 << 7;
+            bVar10 = bVar10 & 0x7f | bVar6;
+            bVar3 = bVar5;
+          } while (bVar6 == 0);
+          if (bVar5 != 0) {
+            2b_1_keypress_detected = true;
+            break;
+          }
+        }
+        bVar6 = current_keyboard_probe_value + 1;
+        if (bVar6 == 0x10) {
+          bVar6 = 0;
+        }
+        bVar3 = bVar10 & 0x7f | (bVar6 < keyboard_probe_r0) << 7;
+        bVar10 = bVar3;
+      } while (bVar6 != keyboard_probe_r0);
+      if ((2b_1_keypress_detected == true) || (2c_0)) {
+        bVar10 = bVar10 & 0x7f | 2b_1_keypress_detected << 7;
+        2c_0 = (bool)(2b_1_keypress_detected & 1);
+        2b_1_keypress_detected = false;
+      }
+      else {
+        2c_2 = false;
+        2d_7 = true;
+      }
+    }
+    else {
+      2c_2 = false;
+      BYTE_INTMEM_59 = 0x30;
+    }
+  }
+  else {
+    if (~BANK3_R2 != 0) {
+      bVar10 = BANK3_R5 & 0x5d | bVar6 | bVar3;
+      bVar3 = ~BANK3_R2;
+      do {
+        bVar5 = bVar3 >> 1 | bVar10 & 0x80;
+        bVar6 = bVar3 << 7;
+        bVar10 = bVar10 & 0x7f | bVar6;
+        bVar3 = bVar5;
+      } while (bVar6 == 0);
+      if (bVar5 != 0) {
+        2c_0 = false;
+        2c_2 = true;
+        BYTE_INTMEM_59 = 0x30;
+        goto LAB_CODE_07ba;
+      }
+    }
+    2d_7 = true;
+    BYTE_INTMEM_59 = 5;
+  }
+LAB_CODE_07ba:
+  P2 = DAT_INTMEM_64;
+  BANK3_R5 = bVar10;
+  BANK3_R7 = keyboard_probe_r0;
+  stack_base = BANK3_R2;
+LAB_CODE_06dc:
+  EA = false;
+  if ((DAT_INTMEM_5a != '\0') && (DAT_INTMEM_5a = DAT_INTMEM_5a + -1, DAT_INTMEM_5a == '\0')) {
+    EA = false;
+    nop();
+    nop();
+    2a_0 = 1;
+    serial_psw = serial_psw & 0xdf;
+    timer0_psw = timer0_psw & 0xdd | ((char)serial_psw < '\0') << 5 | (serial_psw == 0) << 1;
+    2a_1 = false;
+    EA = true;
+  }
+  EA = true;
+  ptr = keyboard_read_ptr;
+  if ((2a_3_demomode_flag) && (current_command_byte == 0)) {
+    bVar3 = timer0_psw & 0x7f;
+    timer0_psw = bVar3 | (keyboard_read_ptr < keyboard_write_ptr) << 7;
+    if (keyboard_read_ptr != keyboard_write_ptr) {
+      ptr = keyboard_read_ptr + '\x01';
+      timer0_psw = bVar3 | (ptr < &keyboard_buffer_end) << 7;
+      if (ptr == &keyboard_buffer_end) {
+        ptr = keyboard_buffer_start;
+      }
+      current_char = *ptr;
+      if (-1 < (char)current_char) {
+        if (2c_7) {
+          if (2c_6) {
+            buffer_ptr = command_buffer_start + '\x01';
+            BANK1_R4 = (undefined)((ushort)in_DPTR >> 8);
+            bVar3 = current_char >> 4;
+            keyboard_read_ptr = ptr;
+            command_buffer_start[0] = current_char;
+            do {
+              bVar3 = (bVar3 & 0xf) * '\x05';
+              cVar1 = '\r' - ((char)(timer0_psw & 0x59 | (0xdd < bVar3) << 7) >> 7);
+              font_ptr = (byte *)CONCAT11(cVar1,bVar3 + 0x22);
+              count = 5;
+              do {
+                *buffer_ptr = *font_ptr;
+                buffer_ptr = buffer_ptr + '\x01';
+                font_ptr = font_ptr + 1;
+                count = count - 1;
+              } while (count != 0);
+              timer0_psw = timer0_psw & 0x59 | (cVar1 == '\0') << 1 |
+                           (buffer_ptr < command_buffer_start + '\v') << 7;
+              bVar3 = command_buffer_start[0];
+            } while (buffer_ptr != command_buffer_start + '\v');
+            current_command_byte = 0x77;
+            command_buffer_start[0] = 1;
+            2c_6 = false;
+            ptr = keyboard_read_ptr;
+          }
+          else {
+            current_command_byte = 0x66;
+            command_buffer_start[0] = 1;
+            command_buffer_start[1] = 0x50;
+            command_buffer_start[2] = 1;
+            2c_6 = true;
+            ptr = keyboard_read_ptr;
+          }
+        }
+        else if (2c_5) {
+          current_command_byte = 0x66;
+          command_buffer_start[0] = 1;
+          command_buffer_start[1] = 0xa0;
+          command_buffer_start[2] = 0xa0;
+          2c_6 = true;
+          2c_7 = true;
+          ptr = keyboard_read_ptr;
+        }
+        else {
+          current_command_byte = 0x55;
+          command_buffer_start[0] = 0x40;
+          command_buffer_start[1] = 6;
+          2c_5 = true;
+          ptr = keyboard_read_ptr;
+        }
+      }
+    }
+  }
+  keyboard_read_ptr = ptr;
+  unused_interrupt_handler(in_stack_000000ff);
+  EA = true;
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void serial_interrupt_handler(void)
+
+{
+  bool bVar1;
+  byte *in_R0;
+  byte in_R2;
+  byte in_R3;
+  
+  bVar1 = TI;
+  if (bVar1 != false) {
+    TI = false;
+    RI = false;
+  }
+  bVar1 = RI;
+  if (bVar1 != false) {
+    process_command_byte(in_R0,in_R2,in_R3);
+    return;
+  }
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void exit_serial_interrupt(void)
+
+{
+  byte in_PSW;
+  
+  serial_psw = in_PSW;
+  return;
+}
+
+
+
+void process_command_byte
+               (byte *pending_command_ptr,byte pending_command_len,byte pending_command_byte)
+
+{
+  bool bVar1;
+  undefined uVar2;
+  byte bVar3;
+  byte bVar4;
+  byte b;
+  
+  b = SBUF;
+  bVar4 = RB8;
+  2a_2_current_parity = (bool)(bVar4 & 1);
+  RI = false;
+  DAT_INTMEM_5a = 0;
+  bVar1 = F0_reading_command_flag;
+  if (bVar1 != true) {
+    detect_and_process_possible_command(b);
+    return;
+  }
+  DAT_INTMEM_5c = b;
+  if (pending_command_len == 0) {
+    if (2a_1) {
+      if (b != 0) {
+        bVar4 = 2a_2_current_parity << 7;
+        do {
+          if ((char)bVar4 < '\0') {
+            DAT_INTMEM_5d = DAT_INTMEM_5d + 1;
+            bVar4 = 0;
+          }
+          bVar3 = b << 1 | bVar4 >> 7;
+          bVar4 = b & 0x80;
+          b = bVar3;
+        } while (bVar3 != 0);
+        bVar1 = 3 < DAT_INTMEM_5d;
+        DAT_INTMEM_5d = 0;
+        if (bVar1 << 7 < '\0') {
+          uVar2 = P;
+          send_special_response_and_exit_serial_interrupt(last_response_byte);
+          return;
+        }
+      }
+      if (pending_command_byte == 0xcc) {
+        other_imm_cmd();
+        return;
+      }
+      2a_1 = false;
+      F0_reading_command_flag = false;
+      send_special_response_and_exit_serial_interrupt(0);
+      return;
+    }
+    if (pending_command_byte == 0x11) {
+      cmdi_11_reset();
+      return;
+    }
+    if (pending_command_byte == 0x22) {
+      cmdi_22_poll();
+      return;
+    }
+    if (pending_command_byte == 0x33) {
+      cmdi_33_getkey();
+      return;
+    }
+    other_imm_cmd();
+    return;
+  }
+  bVar4 = P;
+  if (((char)((2a_2_current_parity & bVar4) << 7) < '\0') ||
+     (bVar4 = P, -1 < (char)((2a_2_current_parity | bVar4) << 7))) {
+    *pending_command_ptr = b;
+    if ((pending_command_byte == 0xbb) && (pending_command_ptr == command_buffer_start)) {
+      if (b == 0) goto LAB_CODE_09ed;
+      pending_command_len = b + 1;
+      if ((pending_command_len == 0) || (-1 < (pending_command_len < 0xe) << 7)) {
+        pending_command_len = 0xd;
+        command_buffer_start[0] = 0xc;
+      }
+    }
+    b = 0;
+    uVar2 = 0;
+    if (pending_command_len == 1) {
+      if (pending_command_byte == 0xcc) {
+        cmdi_cc();
+        return;
+      }
+      if (pending_command_byte == 0x88) {
+        cmdi_88_soundcontrol();
+        return;
+      }
+      current_command_byte = ::pending_command_byte;
+      T0 = false;
+LAB_CODE_09ed:
+      F0_reading_command_flag = false;
+      send_special_response_and_exit_serial_interrupt(0);
+      return;
+    }
+  }
+  else {
+    b = 0xff;
+    uVar2 = 1;
+  }
+  TB8 = uVar2;
+  SBUF = b;
+  bVar1 = F0_reading_command_flag;
+  if (bVar1 != false) {
+    DAT_INTMEM_5a = 0xff;
+  }
+  exit_serial_interrupt();
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention
+
+void send_special_response_and_exit_serial_interrupt(byte b)
+
+{
+  bool bVar1;
+  byte in_PSW;
+  
+  TB8 = in_PSW >> 7;
+  SBUF = b;
+  bVar1 = F0_reading_command_flag;
+  if (bVar1 != false) {
+    DAT_INTMEM_5a = 0xff;
+  }
+  exit_serial_interrupt();
+  return;
+}
+
+
+
+void send_normal_response_and_exit_serial_interrupt(byte b)
+
+{
+  byte bVar1;
+  bool bVar2;
+  
+  bVar1 = P;
+  2a_1 = true;
+  TB8 = bVar1 & 1;
+  SBUF = b;
+  bVar2 = F0_reading_command_flag;
+  if (bVar2 != false) {
+    DAT_INTMEM_5a = 0xff;
+  }
+  last_response_byte = b;
+  exit_serial_interrupt();
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention
+
+void send_special_response_and_exit_serial_interrupt(byte b)
+
+{
+  bool bVar1;
+  byte in_PSW;
+  
+  TB8 = in_PSW >> 7;
+  SBUF = b;
+  bVar1 = F0_reading_command_flag;
+  if (bVar1 != false) {
+    DAT_INTMEM_5a = 0xff;
+  }
+  exit_serial_interrupt();
+  return;
+}
+
+
+
+void detect_and_process_possible_command(byte b)
+
+{
+  bool bVar1;
+  byte *command_ptr;
+  byte pending_command_byte;
+  byte b_00;
+  
+  if ((b >> 4 | b << 4) == b) {
+    F0_reading_command_flag = true;
+  }
+  bVar1 = F0_reading_command_flag;
+  ::pending_command_byte = b;
+  if (bVar1 == false) {
+    TB8 = 1;
+    SBUF = 0xff;
+    bVar1 = F0_reading_command_flag;
+    if (bVar1 != false) {
+      DAT_INTMEM_5a = 0xff;
+    }
+    exit_serial_interrupt();
+    return;
+  }
+  if ((((pending_command_byte == 0x55) || (pending_command_byte == 0x44)) ||
+      (pending_command_byte == 0x66)) || (pending_command_byte == 0x77)) {
+LAB_CODE_0adc:
+    if (current_command_byte == 0) {
+LAB_CODE_0ae5:
+      b_00 = 0;
+      goto exit;
+    }
+  }
+  else {
+    if (pending_command_byte == 0x88) goto LAB_CODE_0ae5;
+    if (pending_command_byte == 0x99) goto LAB_CODE_0adc;
+    if (pending_command_byte == 0xaa) {
+      if (current_command_byte == 0) {
+        poweron_reset();
+        F0_reading_command_flag = false;
+        send_special_response_and_exit_serial_interrupt(0);
+        return;
+      }
+    }
+    else {
+      if (((pending_command_byte == 0xbb) || (pending_command_byte == 0xcc)) ||
+         ((pending_command_byte == 0xdd || (pending_command_byte == 0xee)))) goto LAB_CODE_0adc;
+      if (pending_command_byte == 0xff) {
+        if (!2c_1_variable_length_command_flag_) {
+          2c_1_variable_length_command_flag_ = true;
+        }
+        BYTE_INTMEM_2e = 0xd;
+        F0_reading_command_flag = false;
+        send_special_response_and_exit_serial_interrupt(0);
+        return;
+      }
+      if (pending_command_byte != 0) goto LAB_CODE_0ae5;
+    }
+  }
+  b_00 = 0xff;
+  F0_reading_command_flag = false;
+exit:
+  send_special_response_and_exit_serial_interrupt(b_00);
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void cmdi_11_reset(void)
+
+{
+  EA = false;
+  SP = 7;
+  IP = 0;
+  IE = 0;
+  SCON = 0;
+  TCON = 0;
+  P0_screen_out = 0xff;
+  P1_screen_in_ = 0xff;
+  P2 = 0xff;
+  P3 = 0xff;
+  F0_reading_command_flag = true;
+  return;
+}
+
+
+
+void cmdi_22_poll(void)
+
+{
+  byte bVar1;
+  
+  if (2a_3_demomode_flag) {
+    bVar1 = 0x88;
+  }
+  else {
+    2a_7 = keyboard_write_ptr == keyboard_read_ptr;
+    2a_5 = current_command_byte != 0;
+    2a_4 = sound_length_tick_counter != 0;
+    2a_6_keyboard_buffer_full_flag = 0;
+    2a_0 = 0;
+    bVar1 = DAT_INTMEM_2a & 0xf9;
+  }
+  send_normal_response_and_exit_serial_interrupt(bVar1);
+  return;
+}
+
+
+
+void cmdi_33_getkey(void)
+
+{
+  byte bVar1;
+  
+  bVar1 = (byte)keyboard_write_ptr ^ (byte)keyboard_read_ptr;
+  if ((bVar1 != 0) && (bVar1 = 0, !2a_3_demomode_flag)) {
+    keyboard_read_ptr = keyboard_read_ptr + '\x01';
+    if (keyboard_read_ptr == &keyboard_buffer_end) {
+      keyboard_read_ptr = keyboard_buffer_start;
+    }
+    bVar1 = *keyboard_read_ptr;
+  }
+  send_normal_response_and_exit_serial_interrupt(bVar1);
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void cmdi_88_soundcontrol(void)
+
+{
+  bool bVar1;
+  
+  F0_reading_command_flag = false;
+  if (sound_length_tick_counter != 0) {
+    F0_reading_command_flag = true;
+  }
+  if (keyboard_buffer_end == 0x34) {
+    bVar1 = F0_reading_command_flag;
+    if (bVar1 != true) {
+      sound_length_tick_counter = 0x11;
+      sound_length_seconds = 1;
+      pitch_tick_counter = 0;
+      pitch_value = 0;
+    }
+  }
+  else if (keyboard_buffer_end == 0x40) {
+    2b_6_keyclick_flag = true;
+  }
+  else if (keyboard_buffer_end == 0x41) {
+    2b_6_keyclick_flag = false;
+  }
+  else if (keyboard_buffer_end == 0x30) {
+    2b_4_play_sound_flag_ = false;
+    sound_length_tick_counter = 0x92;
+    sound_length_seconds = 2;
+    pitch_tick_counter = 1;
+    pitch_value = 1;
+  }
+  else if (keyboard_buffer_end == 0x31) {
+    2b_4_play_sound_flag_ = false;
+    sound_length_tick_counter = 0x20;
+    sound_length_seconds = 4;
+    pitch_tick_counter = 1;
+    pitch_value = 1;
+  }
+  else if (keyboard_buffer_end == 0x32) {
+    2b_4_play_sound_flag_ = false;
+    sound_length_tick_counter = 0x92;
+    sound_length_seconds = 2;
+    pitch_tick_counter = 0;
+    pitch_value = 0;
+  }
+  else if (keyboard_buffer_end == 0x33) {
+    2b_4_play_sound_flag_ = false;
+    sound_length_tick_counter = 0x20;
+    sound_length_seconds = 4;
+    pitch_tick_counter = 0;
+    pitch_value = 0;
+  }
+  F0_reading_command_flag = false;
+  F0_reading_command_flag = false;
+  send_special_response_and_exit_serial_interrupt(0);
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void cmdi_cc(void)
+
+{
+  byte bVar1;
+  undefined uVar2;
+  byte bVar3;
+  
+  if (command_buffer_start[0] == 0) {
+    F0_reading_command_flag = false;
+  }
+  else {
+    DAT_INTMEM_65 = P2;
+    bVar3 = current_screen_address / 0x30;
+    if (2b_0) {
+      bVar3 = bVar3 + ('\x05' - ((char)((current_screen_address % 0x30 >> 5) << 7) >> 7));
+    }
+    bVar1 = P2;
+    P2 = bVar1 & 0xf0;
+    bVar1 = P2;
+    P2 = bVar1 | bVar3;
+    DAT_INTMEM_5f = DAT_INTMEM_63;
+    FUN_CODE_0656();
+    FUN_CODE_0645();
+    uVar2 = P2;
+    P2 = DAT_INTMEM_65;
+    DAT_INTMEM_65 = uVar2;
+  }
+  send_special_response_and_exit_serial_interrupt(0);
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void other_imm_cmd(void)
+
+{
+  byte bVar1;
+  undefined uVar2;
+  bool bVar3;
+  byte in_R6;
+  byte in_ACC;
+  undefined uVar4;
+  byte bVar5;
+  byte in_PSW;
+  
+  if (in_R6 == 1) {
+    F0_reading_command_flag = false;
+    2a_1 = false;
+    TB8 = in_PSW >> 7;
+    SBUF = in_ACC;
+    bVar3 = F0_reading_command_flag;
+    if (bVar3 != false) {
+      DAT_INTMEM_5a = 0xff;
+    }
+    exit_serial_interrupt();
+    return;
+  }
+  uVar4 = P2;
+  P2 = DAT_INTMEM_65;
+  DAT_INTMEM_65 = uVar4;
+  uVar4 = FUN_CODE_0645();
+  current_screen_address = current_screen_address + 1;
+  if (current_screen_address == 0) {
+    if (2b_0 == false) {
+      2b_0 = true;
+    }
+    else {
+      2b_0 = false;
+    }
+  }
+  bVar5 = current_screen_address / 0x30;
+  if (2b_0 != false) {
+    bVar5 = bVar5 + ('\x05' - ((char)((current_screen_address % 0x30 >> 5) << 7) >> 7));
+  }
+  bVar1 = P2;
+  P2 = bVar1 & 0xf0;
+  bVar1 = P2;
+  P2 = bVar1 | bVar5;
+  DAT_INTMEM_5f = DAT_INTMEM_63;
+  FUN_CODE_0656();
+  FUN_CODE_0645();
+  uVar2 = P2;
+  P2 = DAT_INTMEM_65;
+  DAT_INTMEM_65 = uVar2;
+  send_normal_response_and_exit_serial_interrupt(uVar4);
+  return;
+}
+
+
+
+// WARNING: Unknown calling convention -- yet parameter storage is locked
+
+void poweron_reset(void)
+
+{
+  2a_3_demomode_flag = true;
+  2b_6_keyclick_flag = true;
+  current_command_byte = 0xaa;
+  return;
+}
+
+
+
+void unused_interrupt_handler(void)
+
+{
+  EA = false;
+  nop();
+  nop();
+  return;
+}
+
+
