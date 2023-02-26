@@ -11,7 +11,7 @@ is always sent with the parity bit forced on (sending it as 8N1 works, as the
 stop bit will be treated as the parity bit).
 
 Example: the Poll command sends `22, 00, 00` and receives `00, nn, 00` where
-`nn` is the response.The master sends `22`, and receives 00. Then it sends
+`nn` is the response.The master sends `22`, and receives `00`. Then it sends
 `00`, and receives `nn`. Then it sends `00`, and receives `00`. The keyboard is
 then ready for the next command.
 
@@ -41,16 +41,11 @@ _normal mode_, you need to send the `11 Reset` command.
 
 The Poll command returns a flags byte describing the current keyboard state.
 
-`80`
-:   Key event buffer is empty.
-`40`
-:   Key event buffer is full and any additional keypresses will be lost.
-`20`
-:   GPU is busy --- don't send any graphics commands.
-`10`
-:   Sound is playing.
-`08`
-:   The keyboard is in demo mode.
+  - `80`: Key event buffer is empty.
+  - `40`: Key event buffer is full and any additional keypresses will be lost.
+  - `20`: GPU is busy --- don't send any graphics commands.
+  - `10`: Sound is playing.
+  - `08`: The keyboard is in demo mode.
 
 The others are unknown (so far).
 
@@ -73,7 +68,7 @@ Reset.
 
 Restarts the keyboard firmware in _normal mode_.
 
-### `22!`
+### `22 00! 00`
 
 Poll.
 
