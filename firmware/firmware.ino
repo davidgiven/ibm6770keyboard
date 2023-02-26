@@ -6,6 +6,7 @@
 #define SERIALTX_PIN PA9
 #define RESET_PIN PB3
 
+#include "rawkeyboard.h"
 #include "keymap.h"
 
 #include "keyboardinterface.h"
@@ -106,7 +107,7 @@ KeyboardInterface KeyboardInterface(
     USART1, SERIALRX_PIN, SERIALTX_PIN, RESET_PIN);
 
 USBHID HID;
-HIDKeyboard USBKeyboard(HID);
+HIDRawKeyboard USBKeyboard(HID);
 IBM6770Screen Screen(HID, KeyboardInterface);
 
 void setup()
